@@ -21,6 +21,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Input;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -237,7 +238,12 @@ public class MainView extends VerticalLayout {
 		offBtn.addClickListener(off);
 
 		Div d = new Div();
-		d.add(label);
+		Span l = new Span();
+		l.getStyle().set("min-width", "180px");
+		l.getStyle().set("float", "left");
+		l.add(label);
+		
+		d.add(l);
 		d.add(" ");
 		d.add(onBtn);
 		d.add(" ");
