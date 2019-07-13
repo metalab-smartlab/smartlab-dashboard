@@ -59,7 +59,7 @@ public class HomeassistantService {
 
 	public String post(String endpoint, String body) throws IOException {
 		try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
-			String strUrl = String.format("%s/services/%s/%s", haEndpoint, endpoint);
+			String strUrl = String.format("%s/%s", haEndpoint, endpoint);
 
 			HttpPost httpPost = new HttpPost(strUrl);
 			httpPost.addHeader("Content-Type", "application/json");

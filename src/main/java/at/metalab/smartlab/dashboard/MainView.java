@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,6 +20,7 @@ import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Image;
+import com.vaadin.flow.component.html.Input;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -102,7 +104,7 @@ public class MainView extends VerticalLayout {
 			dark = !dark;
 		});
 		header.add(toggleDarkMode);
-		
+
 		Html h = new Html("<div style=\"font-weight: bold\">Metalab Smartlab - Dashboard</div>");
 		header.add(h);
 
@@ -178,14 +180,50 @@ public class MainView extends VerticalLayout {
 		for (String entity : entities) {
 			String friendlyName = entity.substring(entity.indexOf(".") + 1); // very friendly
 
-			div.add(buttonOnOff(friendlyName, //
+			Div controls = buttonOnOff(friendlyName, //
 					l -> ha.haTurn(entity, true), //
-					l -> ha.haTurn(entity, false)));
+					l -> ha.haTurn(entity, false));
+
+			if (hasRGB(entity)) {
+				Input color = new Input();
+				color.setId(UUID.randomUUID().toString());
+				color.setType("color");
+				color.addValueChangeListener(l -> {
+					try {
+						String colorStr = l.getValue();
+
+						int r = Integer.valueOf(colorStr.substring(1, 3), 16);
+						int g = Integer.valueOf(colorStr.substring(3, 5), 16);
+						int b = Integer.valueOf(colorStr.substring(5, 7), 16);
+						String body = String.format(//
+								"{ \"entity_id\": \"%s\", \"rgb_color\" : [%d, %d, %d] }", //
+								entity, r, g, b);
+
+						ha.post("/services/light/turn_on", body);
+					} catch (IOException ioException) {
+						ioException.printStackTrace();
+					}
+				});
+				controls.add(" ");
+				controls.add(color);
+			}
+
+			div.add(controls);
 		}
 
 		div.setVisible(false);
 
 		return div;
+	}
+
+	private boolean hasRGB(String entityId) {
+		try {
+			String state = ha.get("/states/" + entityId);
+
+			return new ObjectMapper().readTree(state).findPath("attributes").get("rgb_color") != null;
+		} catch (IOException ignore) {
+			return false;
+		}
 	}
 
 	private Div buttonOnOff(String label, //
