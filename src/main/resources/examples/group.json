@@ -1,0 +1,21 @@
+    {
+        "attributes": {
+            "entity_id": [
+                "switch.blinkentunnel",
+                "switch.einganglicht",
+                "switch.eingangstrahler"
+            ],
+            "friendly_name": "Entrance",
+            "order": 8
+        },
+        "context": {
+            "id": "1e996376b54244d999eb08f439bf6b70",
+            "parent_id": null,
+            "user_id": null
+        },
+        "entity_id": "group.mp_grp_light_entrance",
+        "last_changed": "2019-07-12T20:56:13.774226+00:00",
+        "last_updated": "2019-07-12T20:56:13.774226+00:00",
+        "state": "on"
+    },
+ 

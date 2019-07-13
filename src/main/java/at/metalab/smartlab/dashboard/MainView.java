@@ -1,21 +1,25 @@
 package at.metalab.smartlab.dashboard;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.swing.text.html.HTML;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vaadin.flow.component.ClickEvent;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentEventListener;
 import com.vaadin.flow.component.Html;
-import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Image;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.tabs.Tab;
@@ -29,94 +33,38 @@ public class MainView extends VerticalLayout {
 
 	private static final long serialVersionUID = 1L;
 
-	private Div buttonOnOff(String label, //
-			ComponentEventListener<ClickEvent<Button>> on, //
-			ComponentEventListener<ClickEvent<Button>> off) {
+	private HomeassistantService ha;
 
-		Button onBtn = new Button("ON");
-		onBtn.addClickListener(on);
+	private boolean dark = false;
 
-		Button offBtn = new Button("OFF");
-		offBtn.addClickListener(off);
+	public MainView(HomeassistantService ha) throws IOException {
+		this.ha = ha;
 
-		Div d = new Div();
-		d.add(label);
-		d.add(" ");
-		d.add(onBtn);
-		d.add(" ");
-		d.add(offBtn);
-
-		return d;
-	}
-
-	public MainView(HomeassistantService s) {
-		Tab tab1 = new Tab("Mainroom");
-		Div page1 = new Div();
-		page1.add(buttonOnOff("Umbrellas", //
-				l -> s.haLightTurn("light.umbrellas", true), //
-				l -> s.haLightTurn("light.umbrellas", false)));
-		page1.add(buttonOnOff("Stage", //
-				l -> s.haSwitchTurn("group.stagelights", true), //
-				l -> s.haSwitchTurn("group.stagelights", false)));
-
-		Tab tab2 = new Tab("WEL");
-		Div page2 = new Div();
-		page2.add(buttonOnOff("WEL Bench Left", //
-				l -> s.haSwitchTurn("switch.welbenchlightleft", true), //
-				l -> s.haSwitchTurn("switch.welbenchlightleft", false)));
-		page2.add(buttonOnOff("WEL Bench Right", //
-				l -> s.haSwitchTurn("switch.welbenchlightright", true), //
-				l -> s.haSwitchTurn("switch.welbenchlightright", false)));
-		page2.setVisible(false);
-
-		Tab tab3 = new Tab("Lounge");
-		Div page3 = new Div();
-		page3.add(buttonOnOff("Zumtobel", //
-				l -> s.haLightTurn("light.loungelights_zumtobel", true), //
-				l -> s.haLightTurn("light.loungelights_zumtobel", false)));
-		page3.add(buttonOnOff("Squarelamp", //
-				l -> s.haSwitchTurn("switch.loungesquarelamp", true), //
-				l -> s.haSwitchTurn("switch.loungesquarelamp", false)));
-		page3.setVisible(false);
-
-		Tab tab4 = new Tab("Entrance");
-		Div page4 = new Div();
-		page4.add(buttonOnOff("Ceiling", //
-				l -> s.haSwitchTurn("switch.einganglicht", true), //
-				l -> s.haSwitchTurn("switch.einganglicht", false)));
-		page4.add(buttonOnOff("Floodlight", //
-				l -> s.haSwitchTurn("switch.eingangstrahler", true), //
-				l -> s.haSwitchTurn("switch.eingangstrahler", false)));
-		page4.add(buttonOnOff("Blinkentunnel", //
-				l -> s.haSwitchTurn("switch.blinkentunnel", true), //
-				l -> s.haSwitchTurn("switch.blinkentunnel", false)));
-		page4.setVisible(false);
-
-		Tab tab5 = new Tab("Other");
-		Div page5 = new Div();
-		Button shutdownBtn = new Button("Shutdown");
-
-		shutdownBtn.addClickListener(l -> s.service("mqtt", "publish", "{ \"topic\": \"metalab/shutdown\" }"));
-		page5.add(shutdownBtn);
-
-		page5.add(" ");
-
-		Button antishutdownBtn = new Button("Startup");
-		antishutdownBtn.addClickListener(l -> s.service("mqtt", "publish", "{ \"topic\": \"metalab/startup\" }"));
-		page5.add(antishutdownBtn);
-		page5.setVisible(false);
-
+		Tabs tabs = new Tabs();
+		Div pages = new Div();
 		Map<Tab, Component> tabsToPages = new HashMap<>();
-		tabsToPages.put(tab1, page1);
-		tabsToPages.put(tab2, page2);
-		tabsToPages.put(tab3, page3);
-		tabsToPages.put(tab4, page4);
-		tabsToPages.put(tab5, page5);
 
-		Tabs tabs = new Tabs(tab1, tab2, tab3, tab4, tab5);
-		Div pages = new Div(page1, page2, page3, page4, page5);
+		List<Room> rooms = new ArrayList<>();
+		rooms.addAll(panelSetup().getRooms());
+		rooms.add(createRoomOther(this.ha));
+
+		Div firstPage = null;
+		for (Room room : rooms) {
+			Tab tab = room.getTab();
+			Div content = room.getContent();
+
+			tabsToPages.put(tab, content);
+			tabs.add(tab);
+			pages.add(content);
+
+			if (firstPage == null) {
+				firstPage = content;
+				firstPage.setVisible(true);
+			}
+		}
+
 		Set<Component> pagesShown = new HashSet<>();
-		pagesShown.add(page1);
+		pagesShown.add(firstPage);
 
 		tabs.addSelectedChangeListener(event -> {
 			pagesShown.forEach(page -> page.setVisible(false));
@@ -143,9 +91,153 @@ public class MainView extends VerticalLayout {
 				new StreamResource("metalab-logo.png", f), //
 				"Metalab Logo");
 		header.add(i);
+
+		Button toggleDarkMode = new Button("Toggle Dark Mode", VaadinIcon.LIGHTBULB.create());
+		toggleDarkMode.addClickListener(l -> {
+			if (dark) {
+				getUI().get().getPage().executeJavaScript("document.documentElement.setAttribute(\"theme\",\"light\")");
+			} else {
+				getUI().get().getPage().executeJavaScript("document.documentElement.setAttribute(\"theme\",\"dark\")");
+			}
+			dark = !dark;
+		});
+		header.add(toggleDarkMode);
+		
 		Html h = new Html("<div style=\"font-weight: bold\">Metalab Smartlab - Dashboard</div>");
 		header.add(h);
 
 		add(header, actions, pages);
 	}
+
+	private Room createRoomOther(HomeassistantService s) {
+		Tab tab = new Tab("Other");
+		Div content = new Div();
+
+		Button shutdownBtn = new Button("Shutdown");
+		shutdownBtn.addClickListener(l -> s.service("mqtt", "publish", "{ \"topic\": \"metalab/shutdown\" }"));
+		content.add(shutdownBtn);
+
+		content.add(" ");
+
+		Button antishutdownBtn = new Button("Startup");
+		antishutdownBtn.addClickListener(l -> s.service("mqtt", "publish", "{ \"topic\": \"metalab/startup\" }"));
+		content.add(antishutdownBtn);
+		content.setVisible(false);
+
+		return Room.builder().tab(tab).content(content).build();
+	}
+
+	private List<Room> buildRooms(String json) throws IOException {
+		ObjectMapper mapper = new ObjectMapper();
+		JsonNode tree = mapper.readTree(json);
+
+		List<JsonNode> roomNodes = new ArrayList<>();
+		tree.forEach(c -> {
+			if (isRoom(c)) {
+				roomNodes.add(c);
+			}
+		});
+
+		List<Room> rooms = new ArrayList<>();
+
+		for (JsonNode room : roomNodes) {
+			Room.RoomBuilder b = Room.builder();
+
+			Tab tab = createTab(room);
+
+			b.tab(tab);
+			b.displayName(tab.getLabel());
+			b.content(createContent(room));
+
+			rooms.add(b.build());
+		}
+
+		Collections.sort(rooms);
+
+		return rooms;
+	}
+
+	private static Tab createTab(JsonNode room) {
+		return new Tab(room.get("attributes").get("friendly_name").textValue());
+	}
+
+	private Div createContent(JsonNode room) {
+		Div div = new Div();
+
+		List<String> entities = getEntities(room);
+		Collections.sort(entities);
+
+		if (entities.size() > 1) {
+			String groupEntityId = room.get("entity_id").textValue();
+			div.add(buttonOnOff("All", //
+					l -> ha.haTurn(groupEntityId, true), //
+					l -> ha.haTurn(groupEntityId, false)));
+			div.add(new Html("<br>"));
+		}
+
+		for (String entity : entities) {
+			String friendlyName = entity.substring(entity.indexOf(".") + 1); // very friendly
+
+			div.add(buttonOnOff(friendlyName, //
+					l -> ha.haTurn(entity, true), //
+					l -> ha.haTurn(entity, false)));
+		}
+
+		div.setVisible(false);
+
+		return div;
+	}
+
+	private Div buttonOnOff(String label, //
+			ComponentEventListener<ClickEvent<Button>> on, //
+			ComponentEventListener<ClickEvent<Button>> off) {
+
+		Button onBtn = new Button("ON");
+		onBtn.addClickListener(on);
+
+		Button offBtn = new Button("OFF");
+		offBtn.addClickListener(off);
+
+		Div d = new Div();
+		d.add(label);
+		d.add(" ");
+		d.add(onBtn);
+		d.add(" ");
+		d.add(offBtn);
+
+		return d;
+	}
+
+	private static boolean isRoom(JsonNode node) {
+		return node.has("entity_id") && node.get("entity_id").textValue().startsWith("group.mp_");
+	}
+
+	private static List<String> getEntities(JsonNode room) {
+		List<String> l = new ArrayList<>();
+
+		JsonNode node = room.findPath("attributes").findPath("entity_id");
+		node.forEach(c -> {
+			l.add(c.asText());
+		});
+
+		return l;
+	}
+
+	private PanelSetup panelSetup() throws IOException {
+		List<Room> rooms = new ArrayList<>();
+
+		try {
+			String groupStates = ha.get("/states");
+			rooms.addAll(buildRooms(groupStates));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		PanelSetup panelSetup = PanelSetup.builder()//
+				.rooms(rooms)//
+				.build();
+
+		return panelSetup;
+	}
+
 }

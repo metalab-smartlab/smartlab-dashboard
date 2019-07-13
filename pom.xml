@@ -91,6 +91,7 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
+					<mainClass>at.metalab.smartlab.dashboard.DashboardApplication</mainClass>
 					<goal>repackage</goal>
 					<executable>true</executable>
 				</configuration>
