@@ -25,6 +25,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.router.Route;
@@ -196,6 +197,13 @@ public class MainView extends VerticalLayout {
 						int r = Integer.valueOf(colorStr.substring(1, 3), 16);
 						int g = Integer.valueOf(colorStr.substring(3, 5), 16);
 						int b = Integer.valueOf(colorStr.substring(5, 7), 16);
+
+						String body1 = String.format(//
+								"{ \"entity_id\": \"%s\", \"effect\" : \"Solid\" }", //
+								entity);
+
+						ha.post("/services/light/turn_on", body1);
+						
 						String body = String.format(//
 								"{ \"entity_id\": \"%s\", \"rgb_color\" : [%d, %d, %d] }", //
 								entity, r, g, b);
@@ -209,6 +217,33 @@ public class MainView extends VerticalLayout {
 				controls.add(color);
 			}
 
+			List<String> effects = getEffects(entity);
+			if(! effects.isEmpty()) {
+				effects.remove("Solid");
+				Collections.sort(effects);
+				
+				Select<String> effect = new Select<>();
+				
+				effect.setValue("");
+				effect.setItems(effects.toArray(new String[] {}));
+				effect.setPlaceholder("Effect");
+				
+				effect.addValueChangeListener(l -> {
+					try {
+						String body = String.format(//
+								"{ \"entity_id\": \"%s\", \"effect\": \"%s\" }", //
+								entity, l.getValue());
+
+						ha.post("/services/light/turn_on", body);
+					} catch (IOException ioException) {
+						ioException.printStackTrace();
+					}
+				});
+				
+				controls.add(" ");
+				controls.add(effect);
+			}
+			
 			div.add(controls);
 		}
 
@@ -225,6 +260,21 @@ public class MainView extends VerticalLayout {
 		} catch (IOException ignore) {
 			return false;
 		}
+	}
+
+	private List<String> getEffects(String entityId) {
+		List<String> effects = new ArrayList<>();
+		try {
+			String state = ha.get("/states/" + entityId);
+
+			JsonNode effectNode = new ObjectMapper().readTree(state).findPath("attributes").get("effect_list");
+			if(effectNode != null && effectNode.isArray()) {
+				effectNode.elements().forEachRemaining(c -> effects.add(c.asText()));
+			}
+		} catch (IOException ignore) {
+			ignore.printStackTrace();
+		}
+		return effects;
 	}
 
 	private Div buttonOnOff(String label, //
